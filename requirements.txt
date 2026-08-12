@@ -1,0 +1,9 @@
+# Runtime dependencies (Windows / CPython 3.13)
+Pillow>=12,<13
+numpy>=2.2,<3
+imageio-ffmpeg>=0.6,<1
+winrt-Windows.Media.SpeechSynthesis==3.2.1
+winrt-Windows.Storage.Streams==3.2.1
+
+# Build dependency (GitHub Actions / local build)
+pyinstaller>=6.11
