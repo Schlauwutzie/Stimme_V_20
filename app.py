@@ -13,7 +13,7 @@ import wave
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageTk
+from PIL import Image, ImageDraw, ImageFilter, ImageTk
 
 try:
     from imageio_ffmpeg import get_ffmpeg_exe
@@ -25,12 +25,6 @@ except Exception:
 # There is deliberately NO pyttsx3 fallback, so a female voice can never
 # silently replace StefanM.
 try:
-    # Import the dependency namespaces explicitly. PyWinRT distributes each
-    # Windows SDK namespace as its own package; Foundation and Collections
-    # are needed by the generated SpeechSynthesis bindings.
-    import winrt.windows.foundation
-    import winrt.windows.foundation.collections
-    import winrt.windows.storage
     from winrt.windows.media.speechsynthesis import SpeechSynthesizer
     from winrt.windows.storage.streams import DataReader
     WINRT_TTS_AVAILABLE = True
@@ -63,9 +57,9 @@ def ffmpeg_path():
 
 
 # ---------------------------------------------------------------------------
-# Windows OneCore / StefanM V19
+# Windows OneCore / StefanM V20
 # ---------------------------------------------------------------------------
-# V19 does NOT access WinRT TTS from a Tkinter worker thread. Windows
+# V20 does NOT access WinRT TTS from a Tkinter worker thread. Windows
 # OneCore runs in a completely separate helper process. If WinRT blocks,
 # only that helper is affected; the GUI process stays alive.
 
@@ -212,7 +206,7 @@ def _helper_command(input_path, output_path, status_path):
 
 def synthesize_stefan(text, timeout_seconds=90, status_callback=None):
     """
-    V19: synthesize StefanM in a separate process.
+    V20: synthesize StefanM in a separate process.
 
     The parent process never calls SpeechSynthesizer. If Windows OneCore
     blocks, only the helper process is terminated after the timeout.
@@ -222,7 +216,7 @@ def synthesize_stefan(text, timeout_seconds=90, status_callback=None):
     if not text.strip():
         raise RuntimeError("Der zu sprechende Text ist leer.")
 
-    temp_dir = Path(tempfile.mkdtemp(prefix="SchlauWutzie_V19_TTS_"))
+    temp_dir = Path(tempfile.mkdtemp(prefix="SchlauWutzie_V20_TTS_"))
     input_path = temp_dir / "input.txt"
     output_path = temp_dir / "StefanM.wav"
     status_path = temp_dir / "status.txt"
@@ -401,162 +395,67 @@ def fit_cover(image, size):
     return image.crop((left, top, left + tw, top + th))
 
 
-def _font(size, bold=False):
-    """Use Windows Segoe UI when available; fall back to Pillow's font."""
-    candidates = []
-    if os.name == "nt":
-        candidates.append(Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / ("segoeuib.ttf" if bold else "segoeui.ttf"))
-    candidates.extend([
-        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
-    ])
-    for candidate in candidates:
-        try:
-            if candidate.exists():
-                return ImageFont.truetype(str(candidate), size=size)
-        except Exception:
-            pass
-    return ImageFont.load_default()
-
-
-def _rounded_panel(draw, box, radius=22, fill=(8, 18, 31, 185), outline=(70, 190, 255, 150), width=2):
-    draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
-
-
-def _draw_brain_orb(draw, cx, cy, radius, amplitude, time_s):
-    """Small glowing neural orb that pulses with the voice."""
-    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    pulse = 1.0 + 0.10 * amplitude + 0.03 * math.sin(time_s * 5.0)
-    r = int(radius * pulse)
-    for k in range(5, 0, -1):
-        rr = r + k * 10
-        alpha = max(8, int(26 * amplitude + 5))
-        gd.ellipse((cx-rr, cy-rr, cx+rr, cy+rr), fill=(35, 160, 255, alpha))
-    for i in range(16):
-        a = time_s * (0.35 + i * 0.01) + i * math.pi / 8
-        rr = r * (0.45 + 0.05 * math.sin(time_s + i))
-        x = cx + math.cos(a) * rr
-        y = cy + math.sin(a) * rr
-        gd.ellipse((x-3, y-3, x+3, y+3), fill=(255, 196, 80, 170))
-    glow = glow.filter(ImageFilter.GaussianBlur(8))
-    base = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    base.alpha_composite(glow)
-    bd = ImageDraw.Draw(base)
-    bd.ellipse((cx-r, cy-r, cx+r, cy+r), fill=(7, 24, 42, 225), outline=(65, 190, 255, 210), width=3)
-    for j in range(5):
-        yy = cy - r + 14 + j * (2*r-28)/4
-        bd.arc((cx-r+10, yy-12, cx+r-10, yy+12), 195, 345, fill=(80, 205, 255, 160), width=2)
-    for j in range(4):
-        xx = cx-r + 16 + j * (2*r-32)/3
-        bd.arc((xx-12, cy-r+8, xx+12, cy+r-8), 100, 260, fill=(255, 196, 80, 120), width=2)
-    return base
-
-
-def _draw_waveform(draw, x0, y0, x1, height, amplitude, time_s):
-    points = []
-    width = max(1, x1 - x0)
-    for x in range(x0, x1 + 1, 5):
-        t = (x - x0) / width
-        envelope = 0.22 + 0.78 * (math.sin(math.pi * t) ** 0.65)
-        wave = (
-            math.sin(t * 38 + time_s * 8.0) * 0.42
-            + math.sin(t * 83 - time_s * 5.0) * 0.20
-            + math.sin(t * 141 + time_s * 3.0) * 0.10
-        )
-        y = y0 - wave * height * amplitude * envelope
-        points.append((x, y))
-    if len(points) > 1:
-        draw.line(points, fill=(75, 190, 255, 220), width=max(2, int(2 + amplitude * 3)))
-        glow = [(x, y+2) for x, y in points]
-        draw.line(glow, fill=(255, 190, 75, 90), width=1)
-
-
 def make_frame(background, amplitude, time_s):
-    """Render the 9:16 SchlauWutzie scene plus a transparent glass K.I. HUD."""
+    """Keep the user's picture untouched and add only a centered K.I. waveform."""
     frame = background.copy().convert("RGBA")
 
-    # A subtle dark gradient protects the lower HUD without hiding the artwork.
-    overlay = Image.new("RGBA", frame.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-    for y in range(H - 500, H):
-        rel = (y - (H - 500)) / 500.0
-        alpha = int(155 * (rel ** 1.55))
-        draw.line((0, y, W, y), fill=(0, 0, 0, alpha))
-    frame = Image.alpha_composite(frame, overlay)
-
-    hud = Image.new("RGBA", frame.size, (0, 0, 0, 0))
-    d = ImageDraw.Draw(hud)
-
-    # Main glass HUD area.
-    panel = (24, H - 430, W - 24, H - 34)
-    _rounded_panel(d, panel, radius=26, fill=(4, 14, 26, 192), outline=(55, 170, 235, 170), width=2)
-    d.line((40, H - 430, W - 40, H - 430), fill=(255, 195, 80, 155), width=2)
-
-    title_font = _font(24, True)
-    small_font = _font(13, False)
-    bold_font = _font(15, True)
-    tiny_font = _font(11, False)
-
-    d.text((48, H - 414), "SchlauWutzie K.I. – VOICE & VISION", font=title_font, fill=(255, 208, 104, 245))
-    d.text((W - 155, H - 410), "● REC", font=bold_font, fill=(255, 90, 80, 235))
-    d.text((W - 156, H - 390), "1920×1080 • 30 FPS", font=tiny_font, fill=(200, 220, 235, 190))
-
-    # Left: active neural core.
-    left_box = (42, H - 360, 178, H - 72)
-    _rounded_panel(d, left_box, radius=18, fill=(5, 20, 34, 170), outline=(40, 140, 210, 120), width=1)
-    orb_layer = _draw_brain_orb(d, 110, H - 250, 52, amplitude, time_s)
-    hud.alpha_composite(orb_layer)
-    d.text((66, H - 150), "K.I. AKTIV", font=bold_font, fill=(255, 204, 90, 245))
-    d.text((78, H - 126), "● ONLINE", font=small_font, fill=(70, 235, 135, 240))
-
-    # Center: voice waveform / text panel.
-    center_box = (196, H - 360, 520, H - 72)
-    _rounded_panel(d, center_box, radius=18, fill=(4, 15, 28, 150), outline=(40, 140, 210, 100), width=1)
-    d.text((216, H - 340), "Microsoft OneCore • StefanM", font=bold_font, fill=(220, 235, 250, 235))
-    _draw_waveform(d, 218, H - 236, 498, 92, amplitude, time_s)
-    d.line((218, H - 160, 498, H - 160), fill=(70, 180, 255, 85), width=1)
-    # Speech-reactive particles.
-    for i in range(34):
-        x = 220 + ((i * 47.0 + time_s * (18 + i % 4)) % 270)
-        y = H - 185 - ((i * 31) % 55) - amplitude * ((i * 7) % 40)
-        r = 1 + int(amplitude * 2)
-        d.ellipse((x-r, y-r, x+r, y+r), fill=(95, 205, 255, int(70 + 130*amplitude)))
-    d.text((218, H - 136), "StefanM spricht • präzise • klar • ohne Fallback", font=small_font, fill=(190, 215, 235, 220))
-
-    # Right: system analysis.
-    right_box = (538, H - 360, W - 42, H - 72)
-    _rounded_panel(d, right_box, radius=18, fill=(4, 15, 28, 150), outline=(40, 140, 210, 100), width=1)
-    d.text((558, H - 340), "SYSTEM-ANALYSE", font=bold_font, fill=(255, 208, 104, 235))
-    rows = [
-        ("TTS", "StefanM", True),
-        ("SPRACHE", "OneCore", True),
-        ("AUDIO", "48 kHz", True),
-        ("VIDEO", "1080×1920", True),
-        ("RENDER", "GPU/CPU", True),
-        ("STATUS", "OPTIMAL", True),
-    ]
-    yy = H - 310
-    for label, value, ok in rows:
-        d.ellipse((558, yy+2, 566, yy+10), fill=(70, 235, 135, 230) if ok else (255, 90, 80, 230))
-        d.text((574, yy-2), f"{label}: {value}", font=tiny_font, fill=(215, 230, 242, 225))
-        yy += 28
-
-    # Bottom meters and network line.
-    d.text((48, H - 58), "KEIN WEIBLICHER FALLBACK", font=tiny_font, fill=(205, 220, 235, 190))
-    d.text((W - 250, H - 58), "WELT-NETZWERK • VERBUNDEN", font=tiny_font, fill=(80, 230, 150, 220))
-    for i in range(22):
-        x = 250 + i * 16
-        bar = 3 + int((7 + 20 * amplitude) * (0.35 + 0.65 * abs(math.sin(time_s*2 + i*0.7))))
-        d.line((x, H-62, x, H-62-bar), fill=(70, 185, 255, 130), width=3)
-
-    # Composite HUD and a fine animated glow line.
-    frame = Image.alpha_composite(frame, hud)
+    # The only overlay: a restrained, transparent, centered audio waveform.
+    # No mascot, no side panels, no "ONLINE STEFANM" text, no circles.
+    visual = Image.new("RGBA", frame.size, (0, 0, 0, 0))
     glow = Image.new("RGBA", frame.size, (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
-    y = H - 436 + math.sin(time_s * 2.5) * (2 + 5 * amplitude)
-    gd.line((24, y, W - 24, y), fill=(255, 190, 80, int(70 + 100*amplitude)), width=2)
-    glow = glow.filter(ImageFilter.GaussianBlur(5))
-    return Image.alpha_composite(frame, glow).convert("RGB")
+    d = ImageDraw.Draw(visual)
+
+    center_x = W // 2
+    center_y = H - 155
+    half_width = 255
+    bars = 72
+
+    # Soft glow behind the waveform.
+    gd.rounded_rectangle(
+        (center_x - half_width - 18, center_y - 92,
+         center_x + half_width + 18, center_y + 92),
+        radius=28,
+        outline=(35, 205, 255, int(28 + 55 * amplitude)),
+        width=3,
+    )
+
+    # Symmetric waveform. The audio amplitude drives the height; time adds
+    # subtle motion so even quiet speech remains visibly alive.
+    for i in range(bars):
+        t = i / (bars - 1)
+        x = int(center_x - half_width + 2 * half_width * t)
+        envelope = 0.18 + 0.82 * math.sin(math.pi * t) ** 0.55
+        motion = 0.55 + 0.45 * (0.5 + 0.5 * math.sin(time_s * 5.2 + i * 0.73))
+        h = int((7 + 112 * amplitude * envelope * motion) * (0.78 + 0.22 * math.sin(time_s * 2.7 + i)))
+        h = max(5, h)
+        width = 3 if bars > 60 else 4
+        d.rounded_rectangle(
+            (x - width, center_y - h, x + width, center_y + h),
+            radius=width,
+            fill=(80, 220, 255, int(115 + 110 * amplitude)),
+        )
+
+    # Thin center line keeps the animation readable at very low volume.
+    d.line(
+        (center_x - half_width, center_y, center_x + half_width, center_y),
+        fill=(120, 235, 255, int(70 + 80 * amplitude)),
+        width=2,
+    )
+
+    # A few tiny particles, kept close to the waveform so the picture remains
+    # the dominant visual.
+    for i in range(18):
+        phase = time_s * (1.2 + (i % 4) * 0.15) + i * 1.7
+        x = center_x + math.sin(phase) * (80 + (i * 11) % 165)
+        y = center_y + math.cos(phase * 1.31) * (25 + 65 * amplitude)
+        r = 1 + int(2 * amplitude)
+        d.ellipse((x-r, y-r, x+r, y+r), fill=(155, 240, 255, int(50 + 120 * amplitude)))
+
+    glow = glow.filter(ImageFilter.GaussianBlur(14 + int(5 * amplitude)))
+    frame = Image.alpha_composite(frame, glow)
+    frame = Image.alpha_composite(frame, visual)
+    return frame.convert("RGB")
 
 
 # ---------------------------------------------------------------------------
@@ -641,13 +540,10 @@ except Exception:
     winsound = None
 
 
-def resource_path(relative_path):
-    """Resolve bundled assets both from source and from a PyInstaller EXE."""
+def bundled_asset_path(filename):
+    """Find an asset both from source and from a PyInstaller one-file EXE."""
     base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
-    return base / relative_path
-
-
-DEFAULT_IMAGE = resource_path("assets/schlawutzie.png")
+    return base / "assets" / filename
 
 
 class App(tk.Tk):
@@ -667,7 +563,12 @@ class App(tk.Tk):
         self.busy = False
 
         self._build_ui()
-        self._load_default_image()
+
+        bundled = bundled_asset_path("schlawutzie.png")
+        if bundled.exists():
+            self.background_path = str(bundled)
+            self.image_label.config(text="schlawutzie.png (integriert)")
+            self.show_static_preview()
 
     def _build_ui(self):
         style = ttk.Style(self)
@@ -762,7 +663,7 @@ class App(tk.Tk):
 
         self.voice_status = ttk.Label(
             left,
-            text="Interne Stimme: Windows OneCore / Microsoft Stefan • separater TTS-Prozess • kein Fallback",
+            text="Interne Stimme: Windows OneCore / StefanM V20 • separater TTS-Prozess • kein Fallback",
         )
         self.voice_status.pack(anchor="w", pady=(0, 12))
 
@@ -797,16 +698,6 @@ class App(tk.Tk):
         self.preview_canvas.pack(pady=6)
 
         self.preview_photo = None
-
-    def _load_default_image(self):
-        """Load the bundled SchlauWutzie K.I. background when available."""
-        try:
-            if DEFAULT_IMAGE.exists():
-                self.background_path = str(DEFAULT_IMAGE)
-                self.image_label.config(text="Standardbild: SchlauWutzie K.I.")
-                self.show_static_preview()
-        except Exception:
-            self.background_path = None
 
     def set_status(self, text):
         self.status.config(text=text)
@@ -1013,11 +904,6 @@ class App(tk.Tk):
                 self._animate_preview,
             )
         else:
-            if winsound:
-                try:
-                    winsound.PlaySound(None, 0)
-                except Exception:
-                    pass
             self.set_status("Vorschau fertig.")
 
     def export(self):
@@ -1068,16 +954,12 @@ class App(tk.Tk):
                     ),
                 )
 
-            output_path = Path(output)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
             render_video(
                 self.background_path,
                 self.audio_path,
                 output,
                 progress,
             )
-            if not output_path.exists() or output_path.stat().st_size < 1024:
-                raise RuntimeError("FFmpeg meldete Erfolg, aber die MP4-Datei ist nicht gültig.")
 
             self.after(
                 0,
