@@ -1,0 +1,19 @@
+# Runtime dependencies (Windows / CPython 3.13)
+Pillow>=12,<13
+numpy>=2.2,<3
+imageio-ffmpeg>=0.6,<1
+
+# PyWinRT: Microsoft OneCore / Microsoft Stefan.
+# The Foundation + Collections namespaces are required transitively by
+# Windows.Media.SpeechSynthesis and must be installed explicitly so the
+# PyInstaller EXE also contains winrt.windows.foundation.
+winrt-runtime==3.2.1
+winrt-Windows.Foundation==3.2.1
+winrt-Windows.Foundation.Collections==3.2.1
+winrt-Windows.Foundation.Metadata==3.2.1
+winrt-Windows.Media.SpeechSynthesis==3.2.1
+winrt-Windows.Storage==3.2.1
+winrt-Windows.Storage.Streams==3.2.1
+
+# Build dependency (GitHub Actions / local build)
+pyinstaller>=6.11

@@ -1,0 +1,46 @@
+SCHLAUWUTZIE K.I. – VIDEO STUDIO V20 FINAL
+============================================
+
+DAS IST DIE FINALE GITHUB-VERSION.
+
+ENTHALTEN:
+- 9:16 / 1080x1920 / 30 FPS
+- dein SchlauWutzie-K.I.-Bild als Standardbild
+- transparente/gläserne K.I.-HUD-Animation unten
+- sprachreaktive Waveform und Partikel
+- Microsoft OneCore / Microsoft Stefan
+- KEIN weiblicher TTS-Fallback
+- MP4-Export
+- FFmpeg wird über imageio-ffmpeg mitgeliefert
+- GitHub Actions baut die Windows-x64-EXE
+
+WICHTIG:
+assets/schlawutzie.png MUSS vorhanden sein.
+
+DIE FRÜHERE EXE-MELDUNG
+    No module named 'winrt.windows.foundation'
+
+ist in V20 FINAL gezielt berücksichtigt:
+- winrt-runtime 3.2.1
+- winrt-Windows.Foundation 3.2.1
+- winrt-Windows.Foundation.Collections 3.2.1
+- winrt-Windows.Foundation.Metadata 3.2.1
+- winrt-Windows.Media.SpeechSynthesis 3.2.1
+- winrt-Windows.Storage 3.2.1
+- winrt-Windows.Storage.Streams 3.2.1
+
+Die PyInstaller-SPEC sammelt die importierbaren WinRT-Namespaces explizit ein.
+
+GITHUB:
+1. Paket in das lokale Stimme_V_20-Repository übernehmen.
+2. PUSH_FINAL.ps1 ausführen.
+3. GitHub -> Actions -> Build Windows EXE.
+4. Nach Erfolg -> Artifacts -> SchlauWutzie_V20_FINAL-Windows-x64.
+5. Dort die EXE herunterladen.
+
+LOKAL:
+    .\build_exe.ps1
+
+Die Stimme Microsoft Stefan selbst wird nicht in die EXE kopiert. Sie muss auf
+Windows als OneCore-Stimme vorhanden sein. Die App sucht nur nach Stefan und
+verwendet niemals automatisch eine weibliche Ersatzstimme.
