@@ -30,7 +30,7 @@ except Exception:
     WINRT_TTS_AVAILABLE = False
 
 
-APP_NAME = "SchlauWutzie K.I. – Video Studio V20 FINAL"
+APP_NAME = "SchlauWutzie K.I. – Video Studio V21 FINAL"
 IN_W, IN_H = 720, 1280
 OUT_W, OUT_H = 1080, 1920
 FPS = 30
@@ -554,262 +554,233 @@ def draw_neural_hud(
     t: float,
 ) -> Image.Image:
     """
-    Dein Bild bleibt sichtbar.
-    Nur die zentrale, transparente K.I.-Animation liegt unten darüber.
+    V21 Premium Sci-Fi / K.I. interface.
+
+    The original background remains visible. Only a slim, transparent,
+    central HUD is overlaid near the bottom. The animation reacts to
+    voice amplitude and uses subtle gold/blue motion.
     """
 
     frame = background.convert("RGBA")
-
-    hud = Image.new(
-        "RGBA",
-        frame.size,
-        (0, 0, 0, 0),
-    )
-
+    hud = Image.new("RGBA", frame.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(hud, "RGBA")
 
     cx = IN_W // 2
-    cy = IN_H - 155
+    cy = IN_H - 156
 
-    # Minimaler transparenter Glasbereich – keine Seitenkästen.
+    # Very subtle glass plate: the picture remains dominant.
     panel = (
-        105,
-        IN_H - 252,
-        IN_W - 105,
-        IN_H - 48,
+        92,
+        IN_H - 266,
+        IN_W - 92,
+        IN_H - 46,
     )
-
     d.rounded_rectangle(
         panel,
-        radius=34,
-        fill=(4, 10, 20, 52),
-        outline=(75, 185, 240, 88),
+        radius=38,
+        fill=(3, 7, 14, 38),
+        outline=(82, 188, 245, 72),
         width=2,
     )
 
-    # Glow / Kreise.
-    pulse = (
-        1.0
-        + 0.10 * amplitude
-        + 0.025 * math.sin(t * 4.0)
-    )
+    # Moving energy arcs.
+    pulse = 1.0 + 0.13 * amplitude + 0.028 * math.sin(t * 3.2)
+    core_r = int(46 * pulse)
 
-    r = int(52 * pulse)
-
-    for k in range(6, 0, -1):
-        rr = r + k * 12
-
+    for layer in range(8, 0, -1):
+        rr = core_r + layer * 11
+        alpha = max(8, int(11 + 12 * amplitude))
         d.ellipse(
-            (
-                cx - rr,
-                cy - rr,
-                cx + rr,
-                cy + rr,
-            ),
-            outline=(
-                45,
-                165,
-                255,
-                int(8 + 14 * amplitude),
-            ),
-            width=3,
-        )
-
-    # Gold / Blau-Ringe.
-    for i in range(4):
-        rr = r + 10 + i * 13
-        start = (
-            t * (18 + i * 3)
-        ) % 360
-
-        d.arc(
-            (
-                cx - rr,
-                cy - rr,
-                cx + rr,
-                cy + rr,
-            ),
-            start,
-            start + 270,
-            fill=(255, 190, 70, 100),
+            (cx - rr, cy - rr, cx + rr, cy + rr),
+            outline=(42, 165, 255, alpha),
             width=2,
         )
 
-    # Neuronale Punkte.
+    for i in range(5):
+        rr = core_r + 8 + i * 13
+        a0 = (t * (22 + i * 2.7) + i * 47) % 360
+        span = 118 + 28 * math.sin(t * 1.5 + i)
+        d.arc(
+            (cx - rr, cy - rr, cx + rr, cy + rr),
+            a0,
+            a0 + span,
+            fill=(255, 194, 80, 115 if i < 3 else 85),
+            width=2,
+        )
+        d.arc(
+            (cx - rr, cy - rr, cx + rr, cy + rr),
+            a0 + 180,
+            a0 + 180 + span * 0.55,
+            fill=(70, 195, 255, 95),
+            width=2,
+        )
+
+    # Neural network constellation around the core.
     nodes = []
-
-    for i in range(14):
+    node_count = 22
+    for i in range(node_count):
         angle = (
-            t * (0.45 + i * 0.018)
-            + (i * math.tau / 14.0)
+            (i * math.tau / node_count)
+            + t * (0.18 + (i % 4) * 0.012)
+        )
+        rr = core_r * (
+            1.05
+            + 0.16 * math.sin(t * 1.2 + i * 0.7)
         )
 
-        rr = r * (
-            0.50
-            + 0.08 * math.sin(t * 1.3 + i)
-        )
-
-        x = cx + math.cos(angle) * rr
-        y = cy + math.sin(angle) * rr * 0.82
-
+        x = cx + math.cos(angle) * rr * 1.08
+        y = cy + math.sin(angle) * rr * 0.72
         nodes.append((x, y))
 
-        dot_size = 2 + int(2 * amplitude)
-
+        pulse_dot = 2.0 + 2.2 * amplitude + 0.8 * math.sin(t * 3 + i)
+        rdot = max(1.5, pulse_dot)
         d.ellipse(
-            (
-                x - dot_size,
-                y - dot_size,
-                x + dot_size,
-                y + dot_size,
-            ),
-            fill=(255, 210, 95, 190),
+            (x - rdot, y - rdot, x + rdot, y + rdot),
+            fill=(255, 214, 110, 190),
         )
 
-    for i in range(len(nodes)):
-        x1, y1 = nodes[i]
-        x2, y2 = nodes[(i + 3) % len(nodes)]
+    for i, (x1, y1) in enumerate(nodes):
+        for j in (1, 4):
+            x2, y2 = nodes[(i + j) % node_count]
+            if i % 2 == 0 and j == 4:
+                alpha = 48
+            else:
+                alpha = 82
+            d.line(
+                (x1, y1, x2, y2),
+                fill=(82, 198, 255, alpha),
+                width=1,
+            )
 
-        d.line(
-            (x1, y1, x2, y2),
-            fill=(80, 205, 255, 105),
-            width=1,
-        )
-
-    # Kleines Gehirn-Symbol.
+    # Premium central "AI core" / brain symbol.
     d.ellipse(
         (
-            cx - 25,
-            cy - 31,
-            cx + 25,
-            cy + 31,
+            cx - 24,
+            cy - 30,
+            cx + 24,
+            cy + 30,
         ),
-        outline=(225, 240, 255, 225),
+        outline=(228, 241, 255, 230),
         width=2,
     )
-
     d.arc(
-        (
-            cx - 25,
-            cy - 31,
-            cx + 5,
-            cy + 31,
-        ),
-        90,
-        270,
-        fill=(255, 200, 90, 240),
+        (cx - 24, cy - 30, cx + 2, cy + 30),
+        92,
+        268,
+        fill=(255, 205, 92, 245),
         width=2,
     )
-
     d.arc(
-        (
-            cx - 5,
-            cy - 31,
-            cx + 25,
-            cy + 31,
-        ),
-        270,
-        90,
-        fill=(75, 195, 255, 240),
+        (cx - 2, cy - 30, cx + 24, cy + 30),
+        272,
+        88,
+        fill=(76, 201, 255, 245),
         width=2,
     )
-
     d.line(
-        (cx, cy - 26, cx, cy + 26),
-        fill=(255, 255, 255, 125),
+        (cx, cy - 24, cx, cy + 24),
+        fill=(255, 255, 255, 130),
         width=1,
     )
 
-    # Sprach-Waveform.
-    x0 = 142
-    x1 = IN_W - 142
-    base_y = IN_H - 93
+    # Tiny data ticks around the core.
+    for i in range(16):
+        ang = i * math.tau / 16 + t * 0.4
+        inner = core_r + 4
+        outer = core_r + 12 + (i % 3) * 3
+        x1 = cx + math.cos(ang) * inner
+        y1 = cy + math.sin(ang) * inner
+        x2 = cx + math.cos(ang) * outer
+        y2 = cy + math.sin(ang) * outer
+        d.line(
+            (x1, y1, x2, y2),
+            fill=(255, 210, 100, 120),
+            width=2,
+        )
+
+    # Voice-reactive waveform, kept thin and elegant.
+    x0 = 126
+    x1 = IN_W - 126
+    base_y = IN_H - 92
 
     top_points = []
-    bottom_points = []
-
-    for x in range(x0, x1 + 1, 4):
+    mid_points = []
+    for x in range(x0, x1 + 1, 3):
         u = (x - x0) / float(x1 - x0)
+        envelope = 0.15 + 0.85 * (math.sin(math.pi * u) ** 0.62)
 
-        envelope = (
-            0.18
-            + 0.82 * (math.sin(math.pi * u) ** 0.55)
-        )
+        wave1 = math.sin(u * 42.0 + t * 10.5) * 0.52
+        wave2 = math.sin(u * 89.0 - t * 6.2) * 0.25
+        wave3 = math.sin(u * 170.0 + t * 3.7) * 0.12
+        signal = wave1 + wave2 + wave3
 
-        wave = (
-            math.sin(
-                u * 40 + t * 10.0
-            ) * 0.55
-            + math.sin(
-                u * 91 - t * 6.0
-            ) * 0.25
-            + math.sin(
-                u * 160 + t * 3.5
-            ) * 0.12
-        )
-
-        amp = (
-            4 + 40 * amplitude
-        ) * envelope
-
-        top_y = base_y - wave * amp
-        bottom_y = base_y + wave * amp * 0.55
-
-        top_points.append((x, top_y))
-        bottom_points.append((x, bottom_y))
+        amp = (3.5 + 42.0 * amplitude) * envelope
+        y = base_y - signal * amp
+        top_points.append((x, y))
+        mid_points.append((x, base_y + signal * amp * 0.32))
 
     if len(top_points) > 1:
         d.line(
             top_points,
-            fill=(88, 205, 255, 225),
-            width=max(
-                2,
-                int(2 + 3 * amplitude),
-            ),
+            fill=(101, 211, 255, 224),
+            width=max(2, int(2 + amplitude * 2)),
         )
-
         d.line(
-            bottom_points,
-            fill=(255, 190, 75, 125),
-            width=2,
+            mid_points,
+            fill=(255, 201, 88, 128),
+            width=1,
         )
-
         d.line(
             (x0, base_y, x1, base_y),
-            fill=(120, 190, 235, 52),
+            fill=(118, 188, 230, 46),
             width=1,
         )
 
-    small = font(12)
-    bold = font(13, True)
+    # Subtle scanline accents at left/right edges of the HUD.
+    scan_y = IN_H - 195
+    for side in (-1, 1):
+        anchor_x = cx + side * 255
+        for k in range(5):
+            length = 18 + k * 7
+            yy = scan_y + k * 10
+            if side < 0:
+                d.line(
+                    (anchor_x - length, yy, anchor_x, yy),
+                    fill=(77, 190, 255, 68 - k * 7),
+                    width=1,
+                )
+            else:
+                d.line(
+                    (anchor_x, yy, anchor_x + length, yy),
+                    fill=(255, 194, 82, 68 - k * 7),
+                    width=1,
+                )
+
+    small = font(11)
+    bold = font(12, True)
 
     d.text(
-        (
-            cx - 118,
-            IN_H - 232,
-        ),
-        "K.I. AUDIO REAKTIV",
+        (cx - 76, IN_H - 234),
+        "K.I. CORE",
         font=bold,
-        fill=(225, 238, 248, 190),
+        fill=(225, 238, 248, 185),
     )
-
     d.text(
-        (
-            cx - 100,
-            IN_H - 214,
-        ),
-        "SCHLAUWUTZIE K.I.",
+        (cx - 81, IN_H - 216),
+        "VOICE SYNC",
         font=small,
-        fill=(255, 200, 95, 190),
+        fill=(255, 204, 95, 178),
     )
 
-    # Soft glow.
-    glow = hud.filter(
-        ImageFilter.GaussianBlur(5)
-    )
+    # Glow layers are intentionally subtle.
+    glow = hud.filter(ImageFilter.GaussianBlur(7))
+    glow2 = hud.filter(ImageFilter.GaussianBlur(2))
 
     return Image.alpha_composite(
-        Image.alpha_composite(frame, glow),
+        Image.alpha_composite(
+            Image.alpha_composite(frame, glow),
+            glow2,
+        ),
         hud,
     ).convert("RGB")
 

@@ -1,0 +1,14 @@
+SchlauWutzie K.I. – Video Studio V21 FINAL
+
+V21 basiert auf der funktionierenden V20.
+Geändert wurde ausschließlich das Design der zentralen K.I.-Animation:
+
+- Premium Sci-Fi / K.I. Core
+- dünnere, elegantere Voice-Waveform
+- gold/blaues neuronales Netzwerk
+- subtile Energie-Ringe und Ticks
+- transparente Glasfläche
+- Audio-Reaktion auf Stefans Stimme
+- Hintergrundbild, Copy-&-Paste-Textfeld, StefanM/OneCore und MP4-Export bleiben erhalten
+
+Die Datei app.py gehört an die Stelle der bisherigen V20-app.py.
