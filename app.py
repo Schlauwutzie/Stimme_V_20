@@ -30,7 +30,7 @@ except Exception:
     WINRT_TTS_AVAILABLE = False
 
 
-APP_NAME = "SchlauWutzie K.I. – Video Studio V21.1 FINAL"
+APP_NAME = "SchlauWutzie K.I. – Video Studio V21.2 FINAL"
 IN_W, IN_H = 720, 1280
 OUT_W, OUT_H = 1080, 1920
 FPS = 30
@@ -548,160 +548,260 @@ def synthesize_stefan(
 # Central transparent K.I. animation
 # ---------------------------------------------------------------------------
 
-def draw_neural_hud(background: Image.Image, amplitude: float, t: float) -> Image.Image:
-    """V21.1 premium sci-fi central K.I. HUD, reactive to voice amplitude."""
+def draw_neural_hud(
+    background: Image.Image,
+    amplitude: float,
+    t: float,
+) -> Image.Image:
+    """V21.2: Referenzgetreue, transparente K.I.-Premium-Animation."""
+
     frame = background.convert("RGBA")
     hud = Image.new("RGBA", frame.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(hud, "RGBA")
 
     cx = IN_W // 2
-    cy = IN_H - 156
+    cy = IN_H - 165
     activity = max(0.0, min(1.0, float(amplitude)))
 
-    # Very light glass base; original image remains dominant.
-    d.rounded_rectangle(
-        (92, IN_H - 266, IN_W - 92, IN_H - 46),
-        radius=38,
-        fill=(3, 7, 14, 30),
-        outline=(82, 188, 245, 55),
+    # Sehr dezente horizontale Führungslinie.
+    d.line(
+        (108, cy + 98, IN_W - 108, cy + 98),
+        fill=(70, 170, 235, 22),
+        width=1,
+    )
+
+    # Sprachreaktiver K.I.-Core.
+    pulse = 1.0 + 0.10 * activity + 0.018 * math.sin(t * 3.0)
+    core_r = int(46 * pulse)
+
+    # Konzentrische Ringe wie im Referenzbild.
+    for i in range(7):
+        rr = core_r + 8 + i * 12
+        alpha = 32 + int(activity * 45)
+
+        d.ellipse(
+            (cx - rr, cy - rr, cx + rr, cy + rr),
+            outline=(54, 181, 247, alpha),
+            width=2,
+        )
+
+        angle = (t * (15 + i * 1.6) + i * 38) % 360
+
+        d.arc(
+            (cx - rr, cy - rr, cx + rr, cy + rr),
+            angle,
+            angle + 75,
+            fill=(255, 195, 82, 85 + int(30 * activity)),
+            width=2,
+        )
+
+        d.arc(
+            (cx - rr, cy - rr, cx + rr, cy + rr),
+            angle + 178,
+            angle + 228,
+            fill=(77, 207, 255, 75 + int(24 * activity)),
+            width=2,
+        )
+
+    # Kleine neuronale Orbitpunkte.
+    nodes = []
+    for i in range(16):
+        angle = i * math.tau / 16 - t * (0.18 + i * 0.004)
+        rr = core_r + 34 + 17 * math.sin(t * 0.9 + i * 0.6)
+
+        x = cx + math.cos(angle) * rr
+        y = cy + math.sin(angle) * rr * 0.72
+        nodes.append((x, y))
+
+        dot = 2.0 + 1.8 * activity
+        d.ellipse(
+            (x - dot, y - dot, x + dot, y + dot),
+            fill=(255, 208, 103, 145 + int(activity * 60)),
+        )
+
+    for i in range(0, len(nodes), 2):
+        x1, y1 = nodes[i]
+        x2, y2 = nodes[(i + 3) % len(nodes)]
+        d.line(
+            (x1, y1, x2, y2),
+            fill=(77, 193, 250, 55 + int(activity * 35)),
+            width=1,
+        )
+
+    # Zentrales Gehirn-/K.I.-Symbol.
+    brain_w, brain_h = 50, 58
+
+    d.ellipse(
+        (
+            cx - brain_w // 2,
+            cy - brain_h // 2,
+            cx + brain_w // 2,
+            cy + brain_h // 2,
+        ),
+        outline=(235, 244, 255, 225),
         width=2,
     )
 
-    pulse = 1.0 + 0.16 * activity + 0.025 * math.sin(t * 2.8)
-    core_r = int(45 * pulse)
+    d.arc(
+        (
+            cx - brain_w // 2,
+            cy - brain_h // 2,
+            cx + 1,
+            cy + brain_h // 2,
+        ),
+        90,
+        270,
+        fill=(255, 202, 91, 245),
+        width=2,
+    )
 
-    # Soft core glow.
-    for layer in range(7, 0, -1):
-        rr = core_r + layer * 11
+    d.arc(
+        (
+            cx - 1,
+            cy - brain_h // 2,
+            cx + brain_w // 2,
+            cy + brain_h // 2,
+        ),
+        270,
+        90,
+        fill=(74, 202, 255, 245),
+        width=2,
+    )
+
+    d.line(
+        (cx, cy - 25, cx, cy + 25),
+        fill=(255, 255, 255, 120),
+        width=1,
+    )
+
+    # Kleine Synapsen im Core.
+    for i in range(9):
+        a = i * math.tau / 9 + t * 0.12
+        rr = 14 + 4 * math.sin(t + i)
+        x = cx + math.cos(a) * rr
+        y = cy + math.sin(a) * rr * 0.72
+
+        d.ellipse(
+            (x - 1.8, y - 1.8, x + 1.8, y + 1.8),
+            fill=(255, 215, 120, 170 + int(40 * activity)),
+        )
+
+    # Sprechimpuls läuft vom Core nach außen.
+    if activity > 0.045:
+        phase = (t * 1.7) % 1.0
+        travel = max(0.0, 1.0 - abs(phase - 0.25) / 0.25)
+        rr = int(core_r + 10 + 80 * phase)
+
         d.ellipse(
             (cx - rr, cy - rr, cx + rr, cy + rr),
-            outline=(42, 165, 255, int(7 + 14 * activity)),
+            outline=(
+                100,
+                221,
+                255,
+                max(15, int(175 * travel * activity)),
+            ),
             width=2,
         )
 
-    # Rotating gold/cyan energy arcs.
-    for i in range(5):
-        rr = core_r + 8 + i * 13
-        angle = (t * (21 + i * 2.2) + i * 43) % 360
-        span = 88 + 22 * activity
-        d.arc(
-            (cx - rr, cy - rr, cx + rr, cy + rr),
-            angle, angle + span,
-            fill=(255, 198, 88, 105 + int(25 * activity)),
-            width=2,
-        )
-        d.arc(
-            (cx - rr, cy - rr, cx + rr, cy + rr),
-            angle + 180, angle + 180 + span * 0.55,
-            fill=(74, 202, 255, 90 + int(20 * activity)),
-            width=2,
-        )
+    # Feine, sprachreaktive Waveform.
+    x0 = 120
+    x1 = IN_W - 120
+    base_y = cy + 92
 
-    # Voice impulse traveling outward while speaking.
-    if activity > 0.035:
-        phase = (t * 1.9) % 1.0
-        radius = core_r + 10 + int(phase * 72)
-        strength = max(0.0, 1.0 - abs(phase - 0.22) / 0.22) * activity
-        alpha = int(55 + 165 * strength)
-        d.ellipse(
-            (cx - radius, cy - radius, cx + radius, cy + radius),
-            outline=(120, 220, 255, alpha),
-            width=2,
-        )
-
-    # Neuron constellation.
-    nodes = []
-    for i in range(20):
-        angle = i * math.tau / 20 + t * (0.16 + (i % 3) * 0.015)
-        rr = core_r * (1.04 + 0.17 * math.sin(t * 1.15 + i * 0.73))
-        x = cx + math.cos(angle) * rr * 1.07
-        y = cy + math.sin(angle) * rr * 0.70
-        nodes.append((x, y))
-        dot = max(1.5, 1.8 + 1.8 * activity + 0.55 * math.sin(t * 3.0 + i))
-        d.ellipse((x - dot, y - dot, x + dot, y + dot),
-                  fill=(255, 214, 110, 155 + int(45 * activity)))
-
-    for i, (x1, y1) in enumerate(nodes):
-        for off in (1, 4):
-            x2, y2 = nodes[(i + off) % len(nodes)]
-            d.line((x1, y1, x2, y2),
-                   fill=(82, 198, 255, 40 + int(35 * activity)),
-                   width=1)
-
-    # Central premium K.I. core.
-    d.ellipse((cx - 23, cy - 29, cx + 23, cy + 29),
-               outline=(232, 243, 255, 225), width=2)
-    d.arc((cx - 23, cy - 29, cx + 2, cy + 29), 92, 268,
-          fill=(255, 205, 92, 240), width=2)
-    d.arc((cx - 2, cy - 29, cx + 23, cy + 29), 272, 88,
-          fill=(76, 201, 255, 240), width=2)
-    d.line((cx, cy - 23, cx, cy + 23),
-           fill=(255, 255, 255, 115), width=1)
-
-    # Sparse HUD ticks.
-    for i in range(12):
-        angle = i * math.tau / 12 + t * 0.32
-        inner = core_r + 4
-        outer = core_r + 11 + (i % 2) * 3
-        x1 = cx + math.cos(angle) * inner
-        y1 = cy + math.sin(angle) * inner
-        x2 = cx + math.cos(angle) * outer
-        y2 = cy + math.sin(angle) * outer
-        d.line((x1, y1, x2, y2),
-               fill=(255, 210, 105, 88 + int(32 * activity)),
-               width=2)
-
-    # Thin voice waveform.
-    x0, x1 = 126, IN_W - 126
-    base_y = IN_H - 91
-    top_points, lower_points = [], []
+    upper = []
+    lower = []
 
     for x in range(x0, x1 + 1, 3):
         u = (x - x0) / float(x1 - x0)
-        envelope = 0.14 + 0.86 * (math.sin(math.pi * u) ** 0.62)
+        envelope = 0.12 + 0.88 * (math.sin(math.pi * u) ** 0.60)
+
         wave = (
-            math.sin(u * 42.0 + t * 10.5) * 0.52
-            + math.sin(u * 89.0 - t * 6.2) * 0.25
-            + math.sin(u * 170.0 + t * 3.7) * 0.12
+            0.58 * math.sin(u * 45 + t * 11.0)
+            + 0.25 * math.sin(u * 93 - t * 5.5)
+            + 0.11 * math.sin(u * 177 + t * 4.0)
         )
-        scale = (1.5 + 43.0 * activity) * envelope
-        top_points.append((x, base_y - wave * scale))
-        lower_points.append((x, base_y + wave * scale * 0.28))
 
-    d.line(top_points,
-           fill=(101, 211, 255, 205 + int(35 * activity)),
-           width=max(2, int(1 + 2 * activity)))
-    d.line(lower_points, fill=(255, 201, 88, 112), width=1)
-    d.line((x0, base_y, x1, base_y),
-           fill=(118, 188, 230, 42), width=1)
+        scale = (2.0 + 41.0 * activity) * envelope
 
-    # Tiny premium edge markers.
-    marker_y = IN_H - 196
-    for side in (-1, 1):
-        ax = cx + side * 255
-        for k in range(4):
-            length = 16 + k * 7
-            yy = marker_y + k * 11
-            alpha = 56 - k * 9
-            if side < 0:
-                d.line((ax - length, yy, ax, yy),
-                       fill=(77, 190, 255, alpha), width=1)
-            else:
-                d.line((ax, yy, ax + length, yy),
-                       fill=(255, 194, 82, alpha), width=1)
+        upper.append((x, base_y - wave * scale))
+        lower.append((x, base_y + wave * scale * 0.24))
 
+    d.line(
+        upper,
+        fill=(93, 209, 255, 220),
+        width=max(2, int(2 + 2 * activity)),
+    )
+
+    d.line(
+        lower,
+        fill=(255, 201, 91, 120),
+        width=1,
+    )
+
+    # Gold/Cyan-Endmarker.
+    d.line(
+        (x0 - 18, base_y, x0, base_y),
+        fill=(255, 200, 88, 170),
+        width=2,
+    )
+    d.line(
+        (x1, base_y, x1 + 18, base_y),
+        fill=(77, 202, 255, 170),
+        width=2,
+    )
+
+    # Referenzbeschriftung.
     small = font(11)
-    bold = font(12, True)
-    d.text((cx - 76, IN_H - 234), "K.I. CORE", font=bold,
-           fill=(225, 238, 248, 175))
-    d.text((cx - 81, IN_H - 216), "VOICE SYNC", font=small,
-           fill=(255, 204, 95, 172))
+    medium = font(14, True)
 
+    label_y = cy + 112
+
+    d.line(
+        (cx - 98, label_y, cx - 72, label_y),
+        fill=(255, 196, 83, 130),
+        width=1,
+    )
+    d.line(
+        (cx + 72, label_y, cx + 98, label_y),
+        fill=(77, 202, 255, 130),
+        width=1,
+    )
+
+    d.text(
+        (cx - 46, label_y - 8),
+        "K.I. ONLINE",
+        font=medium,
+        fill=(247, 238, 216, 210),
+    )
+
+    d.text(
+        (cx - 100, label_y + 20),
+        "ANALYSE · DENKEN · VERKNÜPFEN",
+        font=small,
+        fill=(215, 225, 233, 165),
+    )
+
+    for i in range(5):
+        xx = cx - 28 + i * 14
+        yy = label_y + 48
+        alpha = 105 + int(70 * activity) if i < 3 else 60
+
+        d.ellipse(
+            (xx - 1.5, yy - 1.5, xx + 1.5, yy + 1.5),
+            fill=(255, 197, 87, alpha)
+            if i % 2 == 0
+            else (77, 204, 255, alpha),
+        )
+
+    # Premium Glow, bewusst dezent.
     glow = hud.filter(ImageFilter.GaussianBlur(8))
-    glow2 = hud.filter(ImageFilter.GaussianBlur(2.5))
+    glow2 = hud.filter(ImageFilter.GaussianBlur(2.4))
 
     return Image.alpha_composite(
-        Image.alpha_composite(Image.alpha_composite(frame, glow), glow2),
+        Image.alpha_composite(
+            Image.alpha_composite(frame, glow),
+            glow2,
+        ),
         hud,
     ).convert("RGB")
 
